@@ -1,5 +1,7 @@
 package ch.wyler.jobfinder.services;
 
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.substringAfter;
 import static org.apache.commons.lang3.StringUtils.substringBetween;
 import static org.apache.commons.lang3.math.NumberUtils.toLong;
 
@@ -12,23 +14,28 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import ch.wyler.jobfinder.nodes.Company;
 import ch.wyler.jobfinder.nodes.Job;
+import ch.wyler.jobfinder.nodes.Place;
 import ch.wyler.jobfinder.repositories.CompanyRepository;
 import ch.wyler.jobfinder.repositories.JobRepository;
+import ch.wyler.jobfinder.repositories.PlaceRepository;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 public class CrawlerService {
 
-    private static final int MAX_PAGES = 2;
+    private static final int MAX_PAGES = 7;
     private static final String BASE_URL = "https://jobs.mobiliar.ch";
 
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
+    private final PlaceRepository placeRepository;
 
-    public CrawlerService(final JobRepository jobRepository, final CompanyRepository companyRepository) {
+    public CrawlerService(final JobRepository jobRepository, final CompanyRepository companyRepository,
+            final PlaceRepository placeRepository) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
+        this.placeRepository = placeRepository;
         reset();
         crawl();
     }
@@ -45,14 +52,27 @@ public class CrawlerService {
 
             document = Jsoup.parse(result);
 
-            final Elements elements = document.select("span.tableaslist_subtitle a.HSTableLinkSubTitle");
+            final Elements elements = document.select("div.tableaslist_cell");
             for (final Element element : elements) {
-                final String jobTitle = element.childNodes().get(0).toString();
-                final String descriptionLink = element.attributes().get("href");
+                final Element elementSubTitle = element.getElementsByClass("HSTableLinkSubTitle").get(0);
+                final Element elementPlace = element.getElementsByClass("tableaslist_subtitle").get(3);
+                final String jobTitle = elementSubTitle.childNodes().get(0).toString();
+                final String descriptionLink = elementSubTitle.attributes().get("href");
                 final long id = toLong(substringBetween(descriptionLink, "/Vacancies/", "/Description/"));
 
                 final Job job = jobRepository.save(new Job(id, jobTitle));
                 company.addJob(job);
+
+                final String placeText = elementPlace.ownText();
+                final String place = substringAfter(placeText, "| Kanton: ");
+                if(isNotBlank(place)){
+                    Place resultPlace = placeRepository.findByName(place);
+                    if (resultPlace == null) {
+                        resultPlace = placeRepository.save(new Place(place));
+                    }
+                    job.addPlace(resultPlace);
+                    jobRepository.save(job);
+                }
             }
 
             waitBeforeNextRequest();
@@ -63,11 +83,12 @@ public class CrawlerService {
     private void reset() {
         jobRepository.deleteAll();
         companyRepository.deleteAll();
+        placeRepository.deleteAll();
     }
 
     private void waitBeforeNextRequest() {
         try {
-            Thread.sleep(2000);
+            Thread.sleep(500);
         } catch (final InterruptedException e) {
             log.error("Thread interrupted", e);
             Thread.currentThread().interrupt();

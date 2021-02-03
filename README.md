@@ -1,14 +1,18 @@
 # Jobfinder
-Create a graph out of the data from the open job offers from Mobiliar.
+Create a graph out of the job offers from Mobiliar.
 
 ## Data
 Data-Source: https://jobs.mobiliar.ch/Jobs/All
 
-## Graph database
-Neo4j
+## Neo4j graph database
+UI: http://localhost:7474/
 
-GUI: http://localhost:7474/
+    docker-compose start neo4j
 
 ## Build
 
     mvn clean install
+    mvn spring-boot:run
+
+## Result
+![Overview](docs/overview.png)
