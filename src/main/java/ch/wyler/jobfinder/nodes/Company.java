@@ -1,4 +1,4 @@
-package ch.wyler.jobfinder;
+package ch.wyler.jobfinder.nodes;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -8,6 +8,13 @@ import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.data.neo4j.core.schema.Relationship;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@NoArgsConstructor
+@Getter
+@Setter
 @Node
 public class Company {
 
@@ -17,29 +24,17 @@ public class Company {
 
     private String name;
 
-    private Company() {
-        // Empty constructor required as of Neo4j API 2.0.5
-    }
+    @Relationship(type = "OFFERS")
+    public Set<Job> jobs;
 
     public Company(final String name) {
         this.name = name;
     }
-
-    @Relationship(type = "OFFERS")
-    public Set<Job> jobs;
 
     public void addJob(final Job job) {
         if (jobs == null) {
             jobs = new HashSet<>();
         }
         jobs.add(job);
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(final String name) {
-        this.name = name;
     }
 }
