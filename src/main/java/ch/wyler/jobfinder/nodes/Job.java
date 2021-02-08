@@ -26,6 +26,9 @@ public class Job {
     @Relationship(type = "WORKS_IN")
     public Set<Place> places;
 
+    @Relationship(type = "RELATED_TO")
+    public Set<Keyword> keywords;
+
     public Job(final String name) {
         this.name = name;
     }
@@ -40,5 +43,12 @@ public class Job {
             places = new HashSet<>();
         }
         places.add(place);
+    }
+
+    public void addKeyword(final Keyword keyword) {
+        if (keywords == null) {
+            keywords = new HashSet<>();
+        }
+        keywords.add(keyword);
     }
 }
