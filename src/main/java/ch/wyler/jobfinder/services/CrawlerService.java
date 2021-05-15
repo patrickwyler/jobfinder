@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class CrawlerService {
 
-    private static final int DEFAULT_PAGE_COUNT = 2;
     private static final String BASE_URL = "https://jobs.mobiliar.ch";
     private static final int JOBS_PER_PAGE = 10;
 
@@ -53,10 +52,11 @@ public class CrawlerService {
     }
 
     public void crawl() {
+        log.info("Start crawling..");
         final Company company = companyRepository.save(new Company("Mobiliar"));
 
         for (int i = 1; i < getPageCount(); i++) {
-            log.info("Crawl page number: {}", i);
+            log.info("Crawling page number: {}", i);
             final String result = client.post().uri("/Jobs/All?tc1152481=p" + i)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -68,6 +68,7 @@ public class CrawlerService {
             waitBeforeNextRequest();
         }
         companyRepository.save(company);
+        log.info("All pages crawled.");
     }
 
     private void addJobData(final Company company, final Element element) {
@@ -106,7 +107,7 @@ public class CrawlerService {
                 .filter(e -> e.attributes().get("name").contains("keywords"))
                 .findFirst();
 
-        if(keywordsElement.isPresent()) {
+        if (keywordsElement.isPresent()) {
             final String[] keywords = keywordsElement.get()
                     .attributes()
                     .get("content")
@@ -127,19 +128,31 @@ public class CrawlerService {
     }
 
     private int getPageCount() {
-        final String result = client.get()
-                .uri("/Jobs/All/getTableTotalCount?token_list_id=910579")
+        final String resultGetTokenId = client.get()
+                .uri("/Jobs/All")
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();
-        final int amountOfJobs= toInt(substringBetween(result, "{\"data\":\"", "\"}"), DEFAULT_PAGE_COUNT);
-        return (int) Math.ceil(amountOfJobs / JOBS_PER_PAGE) + 1;
+
+        final int tokenListId = toInt(substringBetween(resultGetTokenId, "token_list_id&quot;:&quot;", "&quot;"), 0);
+
+        final String result = client.get()
+                .uri("/Jobs/All/getTableTotalCount?token_list_id=" + tokenListId)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+        final int amountOfJobs = toInt(substringBetween(result, "{\"data\":\"", "\"}"), 0);
+        return (amountOfJobs / JOBS_PER_PAGE) + 1;
     }
 
     private void reset() {
+        log.info("Reset");
+
         jobRepository.deleteAll();
         companyRepository.deleteAll();
         placeRepository.deleteAll();
+
+        log.info("Reset done.");
     }
 
     private void waitBeforeNextRequest() {
